@@ -1,6 +1,7 @@
 import json
 from query_deepseek import query_deepseek
 
+
 def create_quiz_from_transcript(api_key, num_questions=10):
     # Load transcript from data.json
     with open("data.json", "r", encoding="utf-8") as f:
@@ -16,6 +17,7 @@ def create_quiz_from_transcript(api_key, num_questions=10):
     - question text
     - four options labeled A, B, C, D
     - the correct answer (A/B/C/D)
+    - have different ansswer choices for each question
     Format the response as JSON in the following structure:
     [
       {{
@@ -50,8 +52,11 @@ def create_quiz_from_transcript(api_key, num_questions=10):
     print(f"Quiz saved to quiz.json with {num_questions} questions.")
     return quiz
 
+
 # Example usage
 if __name__ == "__main__":
-    api_key = "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"
+    api_key = (
+        "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"
+    )
     num_questions = 10  # Adjust the number of questions as needed
     create_quiz_from_transcript(api_key, num_questions)

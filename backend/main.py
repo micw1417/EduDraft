@@ -6,6 +6,8 @@ from flask import Flask, request, send_file
 from flask_cors import CORS
 from typing import List, Dict
 import PyPDF2
+from create_quiz import create_quiz_from_transcript
+
 
 app = Flask(__name__)
 CORS(app)
@@ -169,90 +171,17 @@ def generate_ai_content():
 def generate_quiz():
     try:
         payload = request.json
-        transcript: List[str] = payload.get("transcript", [])
         num_questions = int(payload.get("num_questions", 10))
 
-        if not transcript:
-            return api_response(False, error="Transcript is empty"), 400
+        api_key = (
+            "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"
+        )
+        if not api_key:
+            return api_response(False, error="API key not configured"), 500
 
-        # Better question generation with real distractors
-        study_items = []
+        quiz = create_quiz_from_transcript(api_key, num_questions)
 
-        # Extract key concepts from transcript
-        all_concepts = []
-        for line in transcript:
-            # Extract key terms and concepts
-            words = line.lower().split()
-            concepts = [word for word in words if len(word) > 4]  # Get meaningful words
-            all_concepts.extend(concepts[:3])  # Take first 3 concepts per line
-
-        for i, line in enumerate(transcript[:num_questions]):
-            line = line.strip()
-            if not line:
-                continue
-
-            # Extract question and answer from the transcript
-            parts = line.split("The answer is")
-            if len(parts) >= 2:
-                question_part = parts[0].strip()
-                answer_part = parts[1].split(".")[0].strip()
-            else:
-                question_part = f"What is the main concept in: {line[:50]}?"
-                answer_part = "Primary concept"
-
-            # Generate better distractors using other concepts
-            distractors = []
-            available_concepts = [
-                c for c in all_concepts if c.lower() not in answer_part.lower()
-            ]
-
-            # Create meaningful wrong answers
-            if len(available_concepts) >= 3:
-                distractors = [
-                    f"Related to {available_concepts[0]}"
-                    if available_concepts[0]
-                    else "Alternative concept",
-                    f"Involves {available_concepts[1]}"
-                    if available_concepts[1]
-                    else "Different approach",
-                    f"Based on {available_concepts[2]}"
-                    if available_concepts[2]
-                    else "Another method",
-                ]
-            else:
-                distractors = [
-                    "Alternative interpretation",
-                    "Different methodology",
-                    "Contrasting viewpoint",
-                ]
-
-            # Shuffle the options
-            all_options = [answer_part] + distractors
-            random.shuffle(all_options)
-
-            # Find where the correct answer ended up
-            correct_index = all_options.index(answer_part)
-            option_keys = ["A", "B", "C", "D"]
-            correct_key = option_keys[correct_index]
-
-            study_items.append(
-                {
-                    "id": str(uuid.uuid4()),
-                    "question": question_part,
-                    "answer": correct_key,  # This is the key (A, B, C, D)
-                    "difficulty": "medium",
-                    "topic": "General",
-                    "type": "multiple-choice",
-                    "options": {
-                        "A": all_options[0],
-                        "B": all_options[1],
-                        "C": all_options[2],
-                        "D": all_options[3],
-                    },
-                }
-            )
-
-        return api_response(True, data=study_items)
+        return api_response(True, data=quiz)
 
     except Exception as e:
         return api_response(False, error=str(e)), 500
