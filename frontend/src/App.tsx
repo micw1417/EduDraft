@@ -384,4 +384,48 @@ function App() {
                 <div className="bg-white rounded-lg shadow-md p-6">
                   <div className="flex items-center justify-between mb-6">
                     <h2 className="text-xl font-semibold flex items-center">
-                      <GraduationCap className="w-5
+                      <GraduationCap className="w-5 h-5 mr-2 text-indigo-600" />
+                      Generated Study Materials ({studyItems.length})
+                    </h2>
+                    <div className="text-sm text-gray-500">{lastGenerated && `Generated ${formatDate(lastGenerated)}`}</div>
+                  </div>
+
+                  <div className="space-y-4">
+                    {studyItems.map((item, index) => (
+                      <StudyItemCard key={item.id} studyItem={item} index={index} onUpdate={updateStudyItem} onDelete={deleteStudyItem} />
+                    ))}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="bg-white rounded-lg shadow-md p-12 text-center">
+                <Brain className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-xl font-medium text-gray-900 mb-2">No Study Materials Yet</h3>
+                <p className="text-gray-500 mb-6 max-w-md mx-auto">Add your study content and generate materials to get started. The AI will create questions, answers, and study guides based on your input.</p>
+                <button onClick={() => setActiveTab("input")} className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700">
+                  <FileText className="w-5 h-5 mr-2" />
+                  Get Started
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Quiz Tab */}
+        {activeTab === "quiz" && <QuizTab studyItems={studyItems} />}
+      </main>
+
+      {/* Footer */}
+      <footer className="bg-white border-t border-gray-200">
+        <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+          <div className="text-center text-sm text-gray-500">
+            <p>EduDraft- Empowering teachers and students with AI-generated study materials</p>
+            <p className="mt-1">Built with React, TypeScript, and OpenRouter AI</p>
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+export default App;
