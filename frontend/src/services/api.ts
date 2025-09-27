@@ -1,7 +1,7 @@
 // frontend/src/services/api.ts
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000x';
 
 // Define types directly in this file to avoid circular imports
 export interface StudyItem {
@@ -156,6 +156,55 @@ class APIService {
     } catch (error) {
       if (axios.isAxiosError(error)) {
         throw new Error(`Export failed: ${error.response?.statusText || error.message}`);
+      }
+      throw error;
+    }
+  }
+
+  async generateFlashcards(transcript: string[], apiKey: string): Promise<any> {
+    try {
+      const response = await this.axiosInstance.post('/flashcards', {
+        transcript,
+        api_key: apiKey
+      });
+      if (response.data.error) throw new Error(response.data.error);
+      return response.data.flashcards;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        throw new Error(error.response?.data?.error || error.message);
+      }
+      throw error;
+    }
+  }
+
+  async generateQuiz(transcript: string[], apiKey: string, numQuestions: number = 10): Promise<any> {
+    try {
+      const response = await this.axiosInstance.post('/quiz', {
+        transcript,
+        api_key: apiKey,
+        num_questions: numQuestions
+      });
+      if (response.data.error) throw new Error(response.data.error);
+      return response.data.quiz;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        throw new Error(error.response?.data?.error || error.message);
+      }
+      throw error;
+    }
+  }
+
+  async generateNotes(transcript: string[], apiKey: string): Promise<any> {
+    try {
+      const response = await this.axiosInstance.post('/notes', {
+        transcript,
+        api_key: apiKey
+      });
+      if (response.data.error) throw new Error(response.data.error);
+      return response.data.notes;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        throw new Error(error.response?.data?.error || error.message);
       }
       throw error;
     }

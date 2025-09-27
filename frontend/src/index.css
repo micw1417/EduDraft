@@ -151,13 +151,13 @@
 
 /* Dark mode overrides */
 @layer base {
-    :root {
-    --gradient-from: theme('colors.blue.50');
-    --gradient-via: theme('colors.indigo.50');
-    --gradient-to: theme('colors.purple.50');
+  :root {
+     --gradient-primary-from: theme('colors.blue.100');
+    --gradient-primary-via: theme('colors.indigo.100');
+    --gradient-primary-to: theme('colors.purple.100');
 
-    --gradient-secondary-from: theme('colors.pink.100');
-    --gradient-secondary-to: theme('colors.red.200');
+    --gradient-secondary-from: #fce7f3; /* pink-100 */
+    --gradient-secondary-to: #fecaca;   /* red-200 */
   }
 
   .dark {
@@ -165,6 +165,7 @@
     --bg-secondary: #1a102a;
     --text-primary: #f8f7fa;
     --text-secondary: #bdb4d8;
+    --text-paragraph: rgb(26, 25, 25);
     --accent: #a78bfa;
     --accent-dark: #7c3aed;
     --card-bg: #181028;
@@ -175,8 +176,8 @@
     --gradient-primary-via: theme('colors.indigo.200');
     --gradient-primary-to: theme('colors.purple.200');
 
-    --gradient-secondary-from: theme('colors.pink.900');
-    --gradient-secondary-to: theme('colors.red.900');
+    --gradient-secondary-from: theme('colors.pink.200');
+    --gradient-secondary-to: theme('colors.red.200');
   }
 }
 
@@ -188,11 +189,21 @@
     color: var(--text-primary) !important;
     box-shadow: var(--shadow-dark) !important;
   }
-  .dark .text-gray-900,
-  .dark .text-gray-800 {
+  .dark .text-gray-50,
+  .dark .text-gray-100,
+  .dark .text-gray-200,
+  .dark .text-gray-300,
+  .dark .text-gray-400,
+  .dark .text-gray-500,
+  .dark .text-gray-600,
+  .dark .text-gray-700,
+  .dark .text-gray-800,
+  .dark .text-gray-900 {
     color: var(--text-primary) !important;
   }
-  .dark .text-gray-600, .dark .text-gray-500 {
+  .dark .text-gray-400,
+  .dark .text-gray-500,
+  .dark .text-gray-600 {
     color: var(--text-secondary) !important;
   }
   .dark .bg-indigo-600 {
@@ -232,7 +243,7 @@
 
   .gradient-primary {
     background-image: linear-gradient(
-      to right,
+      to bottom right,
       var(--gradient-primary-from),
       var(--gradient-primary-via),
       var(--gradient-primary-to)

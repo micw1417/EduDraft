@@ -11,7 +11,9 @@ import {
   WifiOff,
   Moon,
   Sun,
+  Mic,
 } from "lucide-react";
+
 import { useStudyGuide } from "./hooks/useStudyGuide";
 import { FileUpload } from "./components/FileUpload";
 import { StudyItemCard } from "./components/StudyItemCard";
@@ -19,7 +21,7 @@ import { SettingsPanel } from "./components/SettingsPanel";
 import { ExportButtons } from "./components/ExportButtons";
 import { formatDate } from "./utils/helpers";
 
-type TabType = "input" | "settings" | "results";
+type TabType = "input" | "record" | "settings" | "results" | "flashcards";
 
 function App() {
   const {
@@ -102,20 +104,30 @@ function App() {
     setShowLastSessionDialog(false);
     setActiveTab("results");
   };
-
   const tabs = [
     { id: "input" as TabType, label: "Input Content", icon: FileText },
-    { id: "settings" as TabType, label: "Settings", icon: Settings },
+    {
+      id: "record" as TabType,
+      label: "Record",
+      icon: Mic, // Make sure to import Mic from 'lucide-react'
+    },
     {
       id: "results" as TabType,
       label: "Study Materials",
       icon: GraduationCap,
       badge: studyItems.length,
     },
+    {
+      id: "flashcards" as TabType,
+      label: "Flashcards",
+      icon: Brain, // You can swap this for another icon if you want
+    },
+    { id: "settings" as TabType, label: "Settings", icon: Settings },
   ];
+
   // tailwind graidnet old: bg-gradient-to-br from-blue-100 via-indigo-100 to-purple-100
   return (
-    <div className="min-h-screen gradient-primary">
+    <div className="min-h-screen gradient-primary transition-colors duration-300">
       {/* Header */}
       <header className="bg-white shadow-lg border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -145,7 +157,6 @@ function App() {
                   <Moon className="w-5 h-5 text-purple-700" />
                 )}
               </button>
-
               {/* API Status */}
               <div className="flex items-center space-x-2">
                 {isApiAvailable === null ? (
@@ -165,7 +176,6 @@ function App() {
                   </div>
                 )}
               </div>
-
               {/* Reset Button */}
               {(studyItems.length > 0 || inputContent) && (
                 <button
@@ -293,7 +303,7 @@ function App() {
                     value={inputContent}
                     onChange={(e) => setInputContent(e.target.value)}
                     rows={12}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-vertical"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-vertical dark:bg-black dark:text-white dark:border-gray-700 dark:placeholder-gray-400"
                     placeholder="Paste your lecture notes, textbook content, or any study material here. The AI will analyze this content and generate questions, flashcards, and study materials based on your settings..."
                     disabled={isUploading}
                   />
@@ -371,6 +381,28 @@ function App() {
           </div>
         )}
 
+        {/* Record Tab */}
+        {activeTab === "record" && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h2 className="text-xl font-semibold flex items-center mb-4">
+                <Mic className="w-5 h-5 mr-2 text-indigo-600" />
+                Record Audio
+              </h2>
+              <p className="text-gray-600 mb-4">
+                Use your microphone to record study notes or lecture content.
+              </p>
+              <button
+                onClick={() => console.log("TODO: implement recording")}
+                className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700"
+              >
+                <Mic className="w-5 h-5 mr-2" />
+                Start Recording
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Settings Tab */}
         {activeTab === "settings" && (
           <SettingsPanel settings={settings} onSettingsChange={setSettings} />
@@ -437,6 +469,39 @@ function App() {
           </div>
         )}
       </main>
+
+      {/* Flashcards Tab */}
+      {activeTab === "flashcards" && (
+        <div className="space-y-6">
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h2 className="text-xl font-semibold flex items-center mb-4">
+              <Brain className="w-5 h-5 mr-2 text-indigo-600" />
+              Flashcards
+            </h2>
+            {studyItems.length > 0 ? (
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {studyItems.map((item, index) => (
+                  <div
+                    key={item.id}
+                    className="bg-indigo-50 dark:bg-indigo-900 p-4 rounded-lg shadow hover:shadow-lg transition"
+                  >
+                    <p className="font-medium text-gray-900 dark:text-gray-100 mb-2">
+                      {item.question || `Card ${index + 1}`}
+                    </p>
+                    <p className="text-sm text-gray-700 dark:text-gray-300">
+                      {item.answer || "Answer hidden"}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-500">
+                No flashcards available. Generate study materials first.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Footer */}
       <footer className="bg-white border-t border-gray-200 mt-16">
