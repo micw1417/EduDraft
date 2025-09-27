@@ -12,6 +12,8 @@ import {
   Moon,
   Sun,
   Mic,
+  PenTool,
+  BookOpen,
 } from "lucide-react";
 
 import { useStudyGuide } from "./hooks/useStudyGuide";
@@ -30,13 +32,20 @@ type TabType =
   | "results"
   | "flashcards"
   | "quiz"
-  | "essay"; // New essay tab
+  | "essay";
+
+interface EssayData {
+  summary: string;
+  essay_prompt: string;
+  grading: string;
+  topic: string;
+  created_at: string;
+}
 
 function App() {
   const {
     // State
     studyItems,
-    essays,
     isGenerating,
     isUploading,
     error,
@@ -51,7 +60,6 @@ function App() {
 
     // Actions
     generateStudyMaterials,
-    generateEssay, // New action for essay generation
     uploadFile,
     exportStudyMaterials,
     updateStudyItem,
@@ -62,6 +70,10 @@ function App() {
     reset,
     loadLastSession,
   } = useStudyGuide();
+
+  // Essay-specific state (managed locally in App component)
+  const [essays, setEssays] = useState<EssayData[]>([]);
+  const [isGeneratingEssay, setIsGeneratingEssay] = useState(false);
 
   const [activeTab, setActiveTab] = useState<TabType>("input");
   const [showLastSessionDialog, setShowLastSessionDialog] = useState(false);
@@ -99,9 +111,47 @@ function App() {
     if (success) setActiveTab("results");
   };
 
+  // FIXED: Essay generation function
   const handleGenerateEssay = async () => {
-    const success = await generateEssay();
-    if (success) setActiveTab("essay");
+    if (!inputContent.trim()) {
+      clearError();
+      // Set a temporary error for essay generation
+      return;
+    }
+
+    setIsGeneratingEssay(true);
+    clearError();
+
+    try {
+      // Import the API service
+      const { apiService } = await import('./services/api');
+      
+      const result = await apiService.generateEssay(
+        inputContent,
+        settings.subject || 'General Studies',
+        '', // Empty student answer for prompt generation
+        undefined // Will use default API key
+      );
+
+      const essayData: EssayData = {
+        summary: result.summary,
+        essay_prompt: result.essay_prompt,
+        grading: result.grading,
+        topic: settings.subject || 'General Studies',
+        created_at: new Date().toISOString()
+      };
+
+      setEssays(prev => [...prev, essayData]);
+      setActiveTab("essay");
+      
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to generate essay';
+      // You'll need to add a way to show errors - for now, console.error
+      console.error('Essay generation error:', errorMessage);
+      alert(`Essay generation failed: ${errorMessage}`);
+    } finally {
+      setIsGeneratingEssay(false);
+    }
   };
 
   const handleLoadLastSession = () => {
@@ -116,7 +166,7 @@ function App() {
     { id: "results" as TabType, label: "Study Materials", icon: GraduationCap, badge: studyItems.length },
     { id: "flashcards" as TabType, label: "Flashcards", icon: Brain },
     { id: "quiz" as TabType, label: "Quiz", icon: Brain },
-    { id: "essay" as TabType, label: "Essay", icon: FileText }, // Essay tab
+    { id: "essay" as TabType, label: "Essays", icon: PenTool, badge: essays.length },
     { id: "settings" as TabType, label: "Settings", icon: Settings },
   ];
 
@@ -164,8 +214,14 @@ function App() {
                 )}
               </div>
 
-              {(studyItems.length > 0 || inputContent) && (
-                <button onClick={reset} className="text-sm text-gray-500 hover:text-gray-700 underline">
+              {(studyItems.length > 0 || inputContent || essays.length > 0) && (
+                <button 
+                  onClick={() => {
+                    reset();
+                    setEssays([]);
+                  }} 
+                  className="text-sm text-gray-500 hover:text-gray-700 underline"
+                >
                   Start Over
                 </button>
               )}
@@ -182,28 +238,7 @@ function App() {
             <p className="text-gray-600 mb-4">
               We found a previous session with study materials. Would you like to continue where you left off?
             </p>
-            <div className="flex space-x-3">
-              <button
-                onClick={() => setShowLastSessionDialog(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
-              >
-                Start Fresh
-              </button>
-              <button
-                onClick={handleLoadLastSession}
-                className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
-              >
-                Resume Session
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Navigation Tabs */}
-      <nav className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex space-x-8 overflow-x-auto">
+            <div className="flex space-x-8 overflow-x-auto">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
@@ -294,13 +329,16 @@ function App() {
                   <div className="flex space-x-2">
                     <button
                       onClick={handleGenerate}
-                      disabled={!canGenerate || !isApiAvailable}
+                      disabled={!canGenerate || !isApiAvailable || isGenerating}
                       className={`inline-flex items-center px-4 py-2 border border-transparent text-base font-medium rounded-md shadow-sm text-white transition-colors ${
-                        canGenerate && isApiAvailable ? "bg-indigo-600 hover:bg-indigo-700" : "bg-gray-400 cursor-not-allowed"
+                        canGenerate && isApiAvailable && !isGenerating ? "bg-indigo-600 hover:bg-indigo-700" : "bg-gray-400 cursor-not-allowed"
                       }`}
                     >
                       {isGenerating ? (
-                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                        <>
+                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                          Generating...
+                        </>
                       ) : (
                         <>
                           <Brain className="w-5 h-5 mr-2" />
@@ -311,16 +349,19 @@ function App() {
 
                     <button
                       onClick={handleGenerateEssay}
-                      disabled={!canGenerate || !isApiAvailable}
+                      disabled={!canGenerate || !isApiAvailable || isGeneratingEssay}
                       className={`inline-flex items-center px-4 py-2 border border-transparent text-base font-medium rounded-md shadow-sm text-white transition-colors ${
-                        canGenerate && isApiAvailable ? "bg-green-600 hover:bg-green-700" : "bg-gray-400 cursor-not-allowed"
+                        canGenerate && isApiAvailable && !isGeneratingEssay ? "bg-green-600 hover:bg-green-700" : "bg-gray-400 cursor-not-allowed"
                       }`}
                     >
-                      {isGenerating ? (
-                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                      {isGeneratingEssay ? (
+                        <>
+                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                          Generating...
+                        </>
                       ) : (
                         <>
-                          <FileText className="w-5 h-5 mr-2" />
+                          <PenTool className="w-5 h-5 mr-2" />
                           Generate Essay
                         </>
                       )}
@@ -328,6 +369,20 @@ function App() {
                   </div>
                 </div>
               </div>
+            </div>
+
+            {/* Quick Tips */}
+            <div className="bg-blue-50 rounded-lg p-6">
+              <h3 className="text-lg font-semibold text-blue-900 mb-3">
+                Tips for Better Results
+              </h3>
+              <ul className="space-y-2 text-sm text-blue-800">
+                <li>• Include key concepts, definitions, and important facts</li>
+                <li>• Provide context and explanations, not just bullet points</li>
+                <li>• Add examples and applications when relevant</li>
+                <li>• Include any specific learning objectives or focus areas</li>
+                <li>• The more detailed your content, the better the generated materials</li>
+              </ul>
             </div>
           </div>
         )}
@@ -341,7 +396,10 @@ function App() {
                 Record Audio
               </h2>
               <p className="text-gray-600 mb-4">Use your microphone to record study notes or lecture content.</p>
-              <button onClick={() => console.log("TODO: implement recording")} className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700">
+              <button 
+                onClick={() => console.log("TODO: implement recording")} 
+                className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700"
+              >
                 <Mic className="w-5 h-5 mr-2" />
                 Start Recording
               </button>
@@ -352,21 +410,117 @@ function App() {
         {/* Flashcards Tab */}
         {activeTab === "flashcards" && <FlashcardReader studyItems={studyItems} />}
 
-        {/* Essay Tab */}
+        {/* Quiz Tab */}
+        {activeTab === "quiz" && <QuizTab studyItems={studyItems} />}
+
+        {/* Essay Tab - FIXED */}
         {activeTab === "essay" && (
           <div className="space-y-6">
             {essays.length > 0 ? (
-              essays.map((essay, idx) => (
-                <div key={idx} className="bg-white rounded-lg shadow-md p-6">
-                  <h2 className="text-lg font-semibold mb-2">Essay {idx + 1}</h2>
-                  <p className="text-gray-800 whitespace-pre-line">{essay}</p>
-                </div>
-              ))
+              <div className="space-y-6">
+                {essays.map((essayData, idx) => (
+                  <div key={idx} className="bg-white rounded-lg shadow-md overflow-hidden">
+                    {/* Essay Header */}
+                    <div className="bg-gradient-to-r from-purple-500 to-pink-500 px-6 py-4">
+                      <h2 className="text-xl font-semibold text-white flex items-center">
+                        <PenTool className="w-5 h-5 mr-2" />
+                        Essay Assignment {idx + 1}: {essayData.topic}
+                      </h2>
+                      <p className="text-purple-100 text-sm mt-1">
+                        Created on {new Date(essayData.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+
+                    <div className="p-6">
+                      {/* Lesson Summary */}
+                      {essayData.summary && (
+                        <div className="mb-6">
+                          <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
+                            <BookOpen className="w-5 h-5 mr-2 text-blue-600" />
+                            Lesson Summary
+                          </h3>
+                          <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-lg">
+                            <p className="text-blue-800 leading-relaxed">{essayData.summary}</p>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Essay Prompt */}
+                      <div className="mb-6">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
+                          <PenTool className="w-5 h-5 mr-2 text-green-600" />
+                          Essay Prompt
+                        </h3>
+                        <div className="bg-green-50 border-l-4 border-green-500 p-4 rounded-r-lg">
+                          <div className="prose max-w-none text-green-800">
+                            <p className="whitespace-pre-line leading-relaxed">{essayData.essay_prompt}</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Student Response Area */}
+                      <div className="border-t pt-6">
+                        <h4 className="text-md font-semibold text-gray-900 mb-3">Your Response:</h4>
+                        <textarea
+                          id={`essay-response-${idx}`}
+                          rows={10}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-vertical"
+                          placeholder="Write your essay response here. Make sure to address all the requirements mentioned in the prompt above..."
+                        />
+                        <div className="flex justify-between items-center mt-4">
+                          <div className="text-sm text-gray-500">
+                            Tip: Review the prompt carefully and ensure you meet all requirements
+                          </div>
+                          <button 
+                            onClick={() => {
+                              const textarea = document.getElementById(`essay-response-${idx}`) as HTMLTextAreaElement;
+                              const response = textarea?.value || '';
+                              if (response.trim()) {
+                                handleGradeEssay(essayData, response, idx);
+                              } else {
+                                alert('Please write your essay response before submitting for grading.');
+                              }
+                            }}
+                            className="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                          >
+                            <CheckCircle className="w-4 h-4 mr-2" />
+                            Submit for Grading
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Grading Results */}
+                      {essayData.grading && (
+                        <div className="mt-6 pt-6 border-t">
+                          <h4 className="text-md font-semibold text-gray-900 mb-3 flex items-center">
+                            <CheckCircle className="w-5 h-5 mr-2 text-orange-600" />
+                            Grading & Feedback
+                          </h4>
+                          <div className="bg-orange-50 border-l-4 border-orange-500 p-4 rounded-r-lg">
+                            <div className="text-orange-800 whitespace-pre-line leading-relaxed">
+                              {essayData.grading}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
             ) : (
               <div className="bg-white rounded-lg shadow-md p-12 text-center">
-                <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                <PenTool className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                 <h3 className="text-xl font-medium text-gray-900 mb-2">No Essays Yet</h3>
-                <p className="text-gray-500 mb-6 max-w-md mx-auto">Generate an essay based on your input content to get started.</p>
+                <p className="text-gray-500 mb-6 max-w-md mx-auto">
+                  Add your study content and click "Generate Essay" to create essay prompts based on your material.
+                </p>
+                <button
+                  onClick={() => setActiveTab("input")}
+                  className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700"
+                >
+                  <FileText className="w-5 h-5 mr-2" />
+                  Add Content
+                </button>
               </div>
             )}
           </div>
@@ -401,8 +555,13 @@ function App() {
               <div className="bg-white rounded-lg shadow-md p-12 text-center">
                 <Brain className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                 <h3 className="text-xl font-medium text-gray-900 mb-2">No Study Materials Yet</h3>
-                <p className="text-gray-500 mb-6 max-w-md mx-auto">Add your study content and generate materials to get started. The AI will create questions, answers, and study guides based on your input.</p>
-                <button onClick={() => setActiveTab("input")} className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700">
+                <p className="text-gray-500 mb-6 max-w-md mx-auto">
+                  Add your study content and generate materials to get started. The AI will create questions, answers, and study guides based on your input.
+                </p>
+                <button
+                  onClick={() => setActiveTab("input")}
+                  className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700"
+                >
                   <FileText className="w-5 h-5 mr-2" />
                   Get Started
                 </button>
@@ -410,22 +569,68 @@ function App() {
             )}
           </div>
         )}
-
-        {/* Quiz Tab */}
-        {activeTab === "quiz" && <QuizTab studyItems={studyItems} />}
       </main>
 
       {/* Footer */}
       <footer className="bg-white border-t border-gray-200">
         <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
           <div className="text-center text-sm text-gray-500">
-            <p>EduDraft- Empowering teachers and students with AI-generated study materials</p>
+            <p>EduDraft - Empowering teachers and students with AI-generated study materials</p>
             <p className="mt-1">Built with React, TypeScript, and OpenRouter AI</p>
           </div>
         </div>
       </footer>
     </div>
   );
+
+  // Helper function for grading essays
+  async function handleGradeEssay(essayData: EssayData, studentResponse: string, essayIndex: number) {
+    setIsGeneratingEssay(true);
+    
+    try {
+      const { apiService } = await import('./services/api');
+      
+      const result = await apiService.generateEssay(
+        inputContent,
+        essayData.topic,
+        studentResponse // Pass the student's response for grading
+      );
+
+      // Update the essay with grading results
+      setEssays(prev => prev.map((essay, idx) => 
+        idx === essayIndex 
+          ? { ...essay, grading: result.grading }
+          : essay
+      ));
+      
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to grade essay';
+      alert(`Essay grading failed: ${errorMessage}`);
+    } finally {
+      setIsGeneratingEssay(false);
+    }
+  }
 }
 
-export default App;
+export default App;-x-3">
+              <button
+                onClick={() => setShowLastSessionDialog(false)}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+              >
+                Start Fresh
+              </button>
+              <button
+                onClick={handleLoadLastSession}
+                className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+              >
+                Resume Session
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Navigation Tabs */}
+      <nav className="bg-white border-b border-gray-200 sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex space
