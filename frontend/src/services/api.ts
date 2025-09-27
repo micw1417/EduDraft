@@ -241,37 +241,33 @@ class APIService {
     }
   }
 
-  // 📝 Generate essay (summary + prompt + grading)
-  async generateEssay(topic: string, studentAnswer: string): Promise<{
-    summary: string;
-    essay_prompt: string;
-    grading: string;
-  }> {
-    try {
-      if (!topic.trim()) throw new Error('Topic is required');
-      if (!studentAnswer.trim()) throw new Error('Student answer is required');
+async generateEssay(
+  jsonFilename: string,
+  topic: string,
+  studentAnswer: string,
+  apiKey: string
+): Promise<{ summary: string; essay_prompt: string; grading: any }> {
+  try {
+    const response = await this.axiosInstance.post('/essay', {
+      json_filename: jsonFilename,
+      topic,
+      student_answer: studentAnswer,
+      api_key: apiKey,
+    });
 
-      const response = await this.axiosInstance.post<APIResponse<{
-        summary: string;
-        essay_prompt: string;
-        grading: string;
-      }>>('/essay', {
-        topic,
-        student_answer: studentAnswer
-      });
-
-      if (!response.data.success) throw new Error(response.data.error || 'Essay generation failed');
-      return response.data.data!;
-    } catch (error) {
-      if (axios.isAxiosError(error)) {
-        const message = error.response?.data?.error || error.message;
-        throw new Error(`Essay generation failed: ${message}`);
-      }
-      throw error;
+    if (!response.data) {
+      throw new Error('No data returned from API');
     }
+
+    return response.data;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      const message = error.response?.data?.detail || error.message;
+      throw new Error(`Essay generation failed: ${message}`);
+    }
+    throw error;
   }
 }
-
 // Export singleton
 export const apiService = new APIService();
 
