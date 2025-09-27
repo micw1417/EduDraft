@@ -12,6 +12,7 @@ export interface StudyItem {
   topic: string;
   type: 'multiple-choice' | 'short-answer' | 'true-false' | 'fill-in-blank';
   options?: { [key: string]: string }; // For multiple choice questions from your backend
+  choices?: string[]; // For quiz component compatibility
 }
 
 export interface GenerationSettings {
@@ -26,6 +27,19 @@ export interface APIResponse<T = any> {
   success: boolean;
   data?: T;
   error?: string;
+}
+
+// Essay-specific interfaces
+export interface EssayResult {
+  summary: string;
+  essay_prompt: string;
+  grading: string;
+}
+
+export interface LessonPlan {
+  lesson_plan_text: string;
+  topic: string;
+  created_at: string;
 }
 
 // Quiz-specific types
@@ -119,7 +133,13 @@ class APIService {
       });
       
       if (!response.data.success) throw new Error(response.data.error || 'Generation failed');
-      return response.data.data || [];
+      
+      // Convert options to choices for quiz compatibility
+      const studyItems = response.data.data || [];
+      return studyItems.map(item => ({
+        ...item,
+        choices: item.options ? Object.values(item.options) : undefined
+      }));
     } catch (error) {
       if (axios.isAxiosError(error)) {
         const message = error.response?.data?.error || error.message;
@@ -167,6 +187,44 @@ class APIService {
     }
   }
 
+  // FIXED: Essay generation method
+  async generateEssay(
+    content: string,
+    topic: string,
+    studentAnswer: string = '',
+    apiKey?: string
+  ): Promise<EssayResult> {
+    try {
+      if (!content.trim()) throw new Error('Content is required for essay generation');
+      
+      // Create lesson plan structure
+      const lessonPlan: LessonPlan = {
+        lesson_plan_text: content,
+        topic: topic,
+        created_at: new Date().toISOString()
+      };
+
+      const response = await this.axiosInstance.post<EssayResult>('/essay', {
+        lesson_plan: lessonPlan,
+        topic,
+        student_answer: studentAnswer,
+        api_key: apiKey || import.meta.env.VITE_API_KEY || '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',
+      });
+
+      if (!response.data) {
+        throw new Error('No data returned from API');
+      }
+
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        const message = error.response?.data?.detail || error.response?.data?.error || error.message;
+        throw new Error(`Essay generation failed: ${message}`);
+      }
+      throw error;
+    }
+  }
+
   // Quiz generation
   async generateQuiz(transcript: string[], numQuestions: number = 10): Promise<StudyItem[]> {
     try {
@@ -190,9 +248,9 @@ class APIService {
 
   convertToQuizQuestions(studyItems: StudyItem[]): QuizQuestion[] {
     return studyItems
-      .filter(item => item.type === 'multiple-choice')
+      .filter(item => item.type === 'multiple-choice' && (item.options || item.choices))
       .map(item => {
-        const options = item.options ? Object.values(item.options) : [];
+        const options = item.choices || (item.options ? Object.values(item.options) : []);
         const correctAnswerIndex = options.findIndex(opt => opt === item.answer);
         return {
           id: item.id,
@@ -240,34 +298,8 @@ class APIService {
       throw error;
     }
   }
-
-async generateEssay(
-  jsonFilename: string,
-  topic: string,
-  studentAnswer: string,
-  apiKey: string
-): Promise<{ summary: string; essay_prompt: string; grading: any }> {
-  try {
-    const response = await this.axiosInstance.post('/essay', {
-      json_filename: jsonFilename,
-      topic,
-      student_answer: studentAnswer,
-      api_key: apiKey,
-    });
-
-    if (!response.data) {
-      throw new Error('No data returned from API');
-    }
-
-    return response.data;
-  } catch (error) {
-    if (axios.isAxiosError(error)) {
-      const message = error.response?.data?.detail || error.message;
-      throw new Error(`Essay generation failed: ${message}`);
-    }
-    throw error;
-  }
 }
+
 // Export singleton
 export const apiService = new APIService();
 
@@ -287,4 +319,5 @@ export const validateContent = (content: string): string | null => {
   if (!content.trim()) return 'Content is required';
   if (content.length < 50) return 'Content should be at least 50 characters long for better results';
   if (content.length > 50000) return 'Content is too long. Please limit to 50,000 characters';
- 
+  return null;
+};
