@@ -20,8 +20,16 @@ import { StudyItemCard } from "./components/StudyItemCard";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { ExportButtons } from "./components/ExportButtons";
 import { formatDate } from "./utils/helpers";
+import { FlashcardReader } from "./components/FlashCardViewer";
+import { QuizTab } from "./components/QuizTab";
 
-type TabType = "input" | "record" | "settings" | "results" | "flashcards";
+type TabType =
+  | "input"
+  | "record"
+  | "settings"
+  | "results"
+  | "flashcards"
+  | "quiz";
 
 function App() {
   const {
@@ -74,13 +82,6 @@ function App() {
     }
   }, [studyItems.length]);
 
-  // Handle successful generation - switch to results tab
-  useEffect(() => {
-    if (studyItems.length > 0 && activeTab !== "results") {
-      setActiveTab("results");
-    }
-  }, [studyItems.length, activeTab]);
-
   useEffect(() => {
     const html = document.documentElement;
     if (darkMode) {
@@ -117,17 +118,13 @@ function App() {
       icon: GraduationCap,
       badge: studyItems.length,
     },
-    {
-      id: "flashcards" as TabType,
-      label: "Flashcards",
-      icon: Brain, // You can swap this for another icon if you want
-    },
+    { id: "flashcards" as TabType, label: "Flashcards", icon: Brain },
+    { id: "quiz" as TabType, label: "Quiz", icon: Brain },
     { id: "settings" as TabType, label: "Settings", icon: Settings },
   ];
 
-  // tailwind graidnet old: bg-gradient-to-br from-blue-100 via-indigo-100 to-purple-100
   return (
-    <div className="min-h-screen gradient-primary transition-colors duration-300">
+    <div className="min-h-screen gradient-primary transition-colors duration-300 flex flex-col">
       {/* Header */}
       <header className="bg-white shadow-lg border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -277,7 +274,7 @@ function App() {
       )}
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+      <main className="flex-1 max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
         {/* Input Tab */}
         {activeTab === "input" && (
           <div className="space-y-6">
@@ -380,7 +377,6 @@ function App() {
             </div>
           </div>
         )}
-
         {/* Record Tab */}
         {activeTab === "record" && (
           <div className="space-y-6">
@@ -402,12 +398,14 @@ function App() {
             </div>
           </div>
         )}
-
-        {/* Settings Tab */}
+        `{" "}
+        {activeTab === "flashcards" && (
+          <FlashcardReader studyItems={studyItems} />
+        )}
+        `{/* Settings Tab */}
         {activeTab === "settings" && (
           <SettingsPanel settings={settings} onSettingsChange={setSettings} />
         )}
-
         {/* Results Tab */}
         {activeTab === "results" && (
           <div className="space-y-6">
@@ -470,41 +468,10 @@ function App() {
         )}
       </main>
 
-      {/* Flashcards Tab */}
-      {activeTab === "flashcards" && (
-        <div className="space-y-6">
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-xl font-semibold flex items-center mb-4">
-              <Brain className="w-5 h-5 mr-2 text-indigo-600" />
-              Flashcards
-            </h2>
-            {studyItems.length > 0 ? (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {studyItems.map((item, index) => (
-                  <div
-                    key={item.id}
-                    className="bg-indigo-50 dark:bg-indigo-900 p-4 rounded-lg shadow hover:shadow-lg transition"
-                  >
-                    <p className="font-medium text-gray-900 dark:text-gray-100 mb-2">
-                      {item.question || `Card ${index + 1}`}
-                    </p>
-                    <p className="text-sm text-gray-700 dark:text-gray-300">
-                      {item.answer || "Answer hidden"}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-gray-500">
-                No flashcards available. Generate study materials first.
-              </p>
-            )}
-          </div>
-        </div>
-      )}
+      {activeTab === "quiz" && <QuizTab studyItems={studyItems} />}
 
       {/* Footer */}
-      <footer className="bg-white border-t border-gray-200 mt-16">
+      <footer className="bg-white border-t border-gray-200">
         <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
           <div className="text-center text-sm text-gray-500">
             <p>

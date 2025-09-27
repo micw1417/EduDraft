@@ -91,6 +91,7 @@ const defaultSettings: GenerationSettings = {
   subject: 'General'
 };
 
+
 // Main hook
 export const useStudyGuide = () => {
   const [state, dispatch] = useReducer(studyGuideReducer, initialState);
@@ -297,4 +298,4 @@ export const useStudyGuide = () => {
     loadLastSession,
     checkApiHealth
   };
-};
+}

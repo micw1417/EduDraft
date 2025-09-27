@@ -3,10 +3,12 @@ export interface StudyItem {
   id: string;
   question: string;
   answer: string;
-  difficulty: 'easy' | 'medium' | 'hard';
+  difficulty: "easy" | "medium" | "hard";
   topic: string;
-  type: 'multiple-choice' | 'short-answer' | 'true-false' | 'fill-in-blank';
+  type: "short-answer" | "multiple-choice" | "flashcard";
+  options?: Record<string, string>; // e.g. { A: "Answer 1", B: "Answer 2", ... }
 }
+
 
 export interface GenerationSettings {
   numQuestions: number;

@@ -1,5 +1,6 @@
 import os
 import json
+import random
 import uuid
 from flask import Flask, request, send_file
 from flask_cors import CORS
@@ -137,7 +138,6 @@ def export_study_materials(format):
 # Flashcards / Quiz / Notes generation
 # ----------------------------
 @app.route("/flashcards", methods=["POST"])
-@app.route("/quiz", methods=["POST"])
 @app.route("/notes", methods=["POST"])
 def generate_ai_content():
     try:
@@ -161,6 +161,99 @@ def generate_ai_content():
         key_map = {"flashcards": "flashcards", "quiz": "quiz", "notes": "notes"}
 
         return api_response(True, data={key_map.get(endpoint, "data"): result})
+    except Exception as e:
+        return api_response(False, error=str(e)), 500
+
+
+@app.route("/quiz", methods=["POST"])
+def generate_quiz():
+    try:
+        payload = request.json
+        transcript: List[str] = payload.get("transcript", [])
+        num_questions = int(payload.get("num_questions", 10))
+
+        if not transcript:
+            return api_response(False, error="Transcript is empty"), 400
+
+        # Better question generation with real distractors
+        study_items = []
+
+        # Extract key concepts from transcript
+        all_concepts = []
+        for line in transcript:
+            # Extract key terms and concepts
+            words = line.lower().split()
+            concepts = [word for word in words if len(word) > 4]  # Get meaningful words
+            all_concepts.extend(concepts[:3])  # Take first 3 concepts per line
+
+        for i, line in enumerate(transcript[:num_questions]):
+            line = line.strip()
+            if not line:
+                continue
+
+            # Extract question and answer from the transcript
+            parts = line.split("The answer is")
+            if len(parts) >= 2:
+                question_part = parts[0].strip()
+                answer_part = parts[1].split(".")[0].strip()
+            else:
+                question_part = f"What is the main concept in: {line[:50]}?"
+                answer_part = "Primary concept"
+
+            # Generate better distractors using other concepts
+            distractors = []
+            available_concepts = [
+                c for c in all_concepts if c.lower() not in answer_part.lower()
+            ]
+
+            # Create meaningful wrong answers
+            if len(available_concepts) >= 3:
+                distractors = [
+                    f"Related to {available_concepts[0]}"
+                    if available_concepts[0]
+                    else "Alternative concept",
+                    f"Involves {available_concepts[1]}"
+                    if available_concepts[1]
+                    else "Different approach",
+                    f"Based on {available_concepts[2]}"
+                    if available_concepts[2]
+                    else "Another method",
+                ]
+            else:
+                distractors = [
+                    "Alternative interpretation",
+                    "Different methodology",
+                    "Contrasting viewpoint",
+                ]
+
+            # Shuffle the options
+            all_options = [answer_part] + distractors
+            random.shuffle(all_options)
+
+            # Find where the correct answer ended up
+            correct_index = all_options.index(answer_part)
+            option_keys = ["A", "B", "C", "D"]
+            correct_key = option_keys[correct_index]
+
+            study_items.append(
+                {
+                    "id": str(uuid.uuid4()),
+                    "question": question_part,
+                    "answer": correct_key,  # This is the key (A, B, C, D)
+                    "difficulty": "medium",
+                    "topic": "General",
+                    "type": "multiple-choice",
+                    "options": {
+                        "A": all_options[0],
+                        "B": all_options[1],
+                        "C": all_options[2],
+                        "D": all_options[3],
+                    },
+                }
+            )
+
+        return api_response(True, data=study_items)
+
     except Exception as e:
         return api_response(False, error=str(e)), 500
 
