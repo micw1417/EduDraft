@@ -29,12 +29,14 @@ type TabType =
   | "settings"
   | "results"
   | "flashcards"
-  | "quiz";
+  | "quiz"
+  | "essay"; // New essay tab
 
 function App() {
   const {
     // State
     studyItems,
+    essays,
     isGenerating,
     isUploading,
     error,
@@ -49,6 +51,7 @@ function App() {
 
     // Actions
     generateStudyMaterials,
+    generateEssay, // New action for essay generation
     uploadFile,
     exportStudyMaterials,
     updateStudyItem,
@@ -63,7 +66,6 @@ function App() {
   const [activeTab, setActiveTab] = useState<TabType>("input");
   const [showLastSessionDialog, setShowLastSessionDialog] = useState(false);
   const [darkMode, setDarkMode] = useState(() => {
-    // Persist dark mode preference in localStorage
     if (typeof window !== "undefined") {
       return (
         localStorage.getItem("theme") === "dark" ||
@@ -74,7 +76,6 @@ function App() {
     return false;
   });
 
-  // Check for last session on mount
   useEffect(() => {
     const hasLastSession = localStorage.getItem("studyguide-last-session");
     if (hasLastSession && studyItems.length === 0) {
@@ -95,9 +96,12 @@ function App() {
 
   const handleGenerate = async () => {
     const success = await generateStudyMaterials();
-    if (success) {
-      setActiveTab("results");
-    }
+    if (success) setActiveTab("results");
+  };
+
+  const handleGenerateEssay = async () => {
+    const success = await generateEssay();
+    if (success) setActiveTab("essay");
   };
 
   const handleLoadLastSession = () => {
@@ -105,21 +109,14 @@ function App() {
     setShowLastSessionDialog(false);
     setActiveTab("results");
   };
+
   const tabs = [
     { id: "input" as TabType, label: "Input Content", icon: FileText },
-    {
-      id: "record" as TabType,
-      label: "Record",
-      icon: Mic, // Make sure to import Mic from 'lucide-react'
-    },
-    {
-      id: "results" as TabType,
-      label: "Study Materials",
-      icon: GraduationCap,
-      badge: studyItems.length,
-    },
+    { id: "record" as TabType, label: "Record", icon: Mic },
+    { id: "results" as TabType, label: "Study Materials", icon: GraduationCap, badge: studyItems.length },
     { id: "flashcards" as TabType, label: "Flashcards", icon: Brain },
     { id: "quiz" as TabType, label: "Quiz", icon: Brain },
+    { id: "essay" as TabType, label: "Essay", icon: FileText }, // Essay tab
     { id: "settings" as TabType, label: "Settings", icon: Settings },
   ];
 
@@ -140,21 +137,14 @@ function App() {
             </div>
 
             <div className="flex items-center space-x-4">
-              {/* Dark mode toggle */}
               <button
                 onClick={() => setDarkMode((d) => !d)}
                 className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 transition-colors"
-                title={
-                  darkMode ? "Switch to light mode" : "Switch to dark mode"
-                }
+                title={darkMode ? "Switch to light mode" : "Switch to dark mode"}
               >
-                {darkMode ? (
-                  <Sun className="w-5 h-5 text-yellow-400" />
-                ) : (
-                  <Moon className="w-5 h-5 text-purple-700" />
-                )}
+                {darkMode ? <Sun className="w-5 h-5 text-yellow-400" /> : <Moon className="w-5 h-5 text-purple-700" />}
               </button>
-              {/* API Status */}
+
               <div className="flex items-center space-x-2">
                 {isApiAvailable === null ? (
                   <div className="animate-pulse flex items-center">
@@ -173,12 +163,9 @@ function App() {
                   </div>
                 )}
               </div>
-              {/* Reset Button */}
+
               {(studyItems.length > 0 || inputContent) && (
-                <button
-                  onClick={reset}
-                  className="text-sm text-gray-500 hover:text-gray-700 underline"
-                >
+                <button onClick={reset} className="text-sm text-gray-500 hover:text-gray-700 underline">
                   Start Over
                 </button>
               )}
@@ -191,12 +178,9 @@ function App() {
       {showLastSessionDialog && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              Resume Last Session?
-            </h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Resume Last Session?</h3>
             <p className="text-gray-600 mb-4">
-              We found a previous session with study materials. Would you like
-              to continue where you left off?
+              We found a previous session with study materials. Would you like to continue where you left off?
             </p>
             <div className="flex space-x-3">
               <button
@@ -250,10 +234,7 @@ function App() {
             <AlertCircle className="w-5 h-5 text-red-400 mt-0.5 mr-3 flex-shrink-0" />
             <div>
               <p className="text-sm text-red-800">{error}</p>
-              <button
-                onClick={clearError}
-                className="text-sm text-red-600 hover:text-red-500 underline mt-1"
-              >
+              <button onClick={clearError} className="text-sm text-red-600 hover:text-red-500 underline mt-1">
                 Dismiss
               </button>
             </div>
@@ -266,8 +247,7 @@ function App() {
           <div className="bg-green-50 border border-green-200 rounded-md p-4 flex items-start">
             <CheckCircle className="w-5 h-5 text-green-400 mt-0.5 mr-3 flex-shrink-0" />
             <p className="text-sm text-green-800">
-              Successfully generated {studyItems.length} study materials on{" "}
-              {formatDate(lastGenerated)}
+              Successfully generated {studyItems.length} study materials on {formatDate(lastGenerated)}
             </p>
           </div>
         </div>
@@ -284,99 +264,74 @@ function App() {
                   <FileText className="w-5 h-5 mr-2 text-indigo-600" />
                   Input Study Content
                 </h2>
-                <FileUpload
-                  onFileUpload={uploadFile}
-                  isUploading={isUploading}
-                  disabled={!isApiAvailable}
-                />
+                <FileUpload onFileUpload={uploadFile} isUploading={isUploading} disabled={!isApiAvailable} />
               </div>
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Study Material Content
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Study Material Content</label>
                   <textarea
                     value={inputContent}
                     onChange={(e) => setInputContent(e.target.value)}
                     rows={12}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-vertical dark:bg-black dark:text-white dark:border-gray-700 dark:placeholder-gray-400"
-                    placeholder="Paste your lecture notes, textbook content, or any study material here. The AI will analyze this content and generate questions, flashcards, and study materials based on your settings..."
+                    placeholder="Paste your lecture notes, textbook content, or any study material here. The AI will analyze this content and generate questions, flashcards, essays, and study materials based on your settings..."
                     disabled={isUploading}
                   />
                 </div>
 
-                <div className="flex justify-between items-center">
+                <div className="flex justify-between items-center space-x-4">
                   <div className="text-sm space-y-1">
-                    <div
-                      className={`${
-                        contentValidation.isValid
-                          ? "text-gray-500"
-                          : "text-red-500"
-                      }`}
-                    >
+                    <div className={`${contentValidation.isValid ? "text-gray-500" : "text-red-500"}`}>
                       {inputContent.length} characters
-                      {!contentValidation.isValid &&
-                        contentValidation.errors.length > 0 && (
-                          <span className="block">
-                            {contentValidation.errors[0]}
-                          </span>
-                        )}
+                      {!contentValidation.isValid && contentValidation.errors.length > 0 && (
+                        <span className="block">{contentValidation.errors[0]}</span>
+                      )}
                     </div>
-                    <div className="text-gray-400">
-                      Recommended: 500-5000 characters for best results
-                    </div>
+                    <div className="text-gray-400">Recommended: 500-5000 characters for best results</div>
                   </div>
 
-                  <button
-                    onClick={handleGenerate}
-                    disabled={!canGenerate || !isApiAvailable}
-                    className={`inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white transition-colors ${
-                      canGenerate && isApiAvailable
-                        ? "bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                        : "bg-gray-400 cursor-not-allowed"
-                    }`}
-                  >
-                    {isGenerating ? (
-                      <>
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={handleGenerate}
+                      disabled={!canGenerate || !isApiAvailable}
+                      className={`inline-flex items-center px-4 py-2 border border-transparent text-base font-medium rounded-md shadow-sm text-white transition-colors ${
+                        canGenerate && isApiAvailable ? "bg-indigo-600 hover:bg-indigo-700" : "bg-gray-400 cursor-not-allowed"
+                      }`}
+                    >
+                      {isGenerating ? (
                         <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                        Generating...
-                      </>
-                    ) : (
-                      <>
-                        <Brain className="w-5 h-5 mr-2" />
-                        Generate Study Materials
-                      </>
-                    )}
-                  </button>
+                      ) : (
+                        <>
+                          <Brain className="w-5 h-5 mr-2" />
+                          Generate Study Materials
+                        </>
+                      )}
+                    </button>
+
+                    <button
+                      onClick={handleGenerateEssay}
+                      disabled={!canGenerate || !isApiAvailable}
+                      className={`inline-flex items-center px-4 py-2 border border-transparent text-base font-medium rounded-md shadow-sm text-white transition-colors ${
+                        canGenerate && isApiAvailable ? "bg-green-600 hover:bg-green-700" : "bg-gray-400 cursor-not-allowed"
+                      }`}
+                    >
+                      {isGenerating ? (
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                      ) : (
+                        <>
+                          <FileText className="w-5 h-5 mr-2" />
+                          Generate Essay
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
-
-            {/* Quick Tips */}
-            <div className="bg-blue-50 rounded-lg p-6">
-              <h3 className="text-lg font-semibold text-blue-900 mb-3">
-                💡 Tips for Better Results
-              </h3>
-              <ul className="space-y-2 text-sm text-blue-800">
-                <li>
-                  • Include key concepts, definitions, and important facts
-                </li>
-                <li>
-                  • Provide context and explanations, not just bullet points
-                </li>
-                <li>• Add examples and applications when relevant</li>
-                <li>
-                  • Include any specific learning objectives or focus areas
-                </li>
-                <li>
-                  • The more detailed your content, the better the generated
-                  questions
-                </li>
-              </ul>
-            </div>
           </div>
         )}
+
         {/* Record Tab */}
         {activeTab === "record" && (
           <div className="space-y-6">
@@ -385,107 +340,48 @@ function App() {
                 <Mic className="w-5 h-5 mr-2 text-indigo-600" />
                 Record Audio
               </h2>
-              <p className="text-gray-600 mb-4">
-                Use your microphone to record study notes or lecture content.
-              </p>
-              <button
-                onClick={() => console.log("TODO: implement recording")}
-                className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700"
-              >
+              <p className="text-gray-600 mb-4">Use your microphone to record study notes or lecture content.</p>
+              <button onClick={() => console.log("TODO: implement recording")} className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700">
                 <Mic className="w-5 h-5 mr-2" />
                 Start Recording
               </button>
             </div>
           </div>
         )}
-        `{" "}
-        {activeTab === "flashcards" && (
-          <FlashcardReader studyItems={studyItems} />
+
+        {/* Flashcards Tab */}
+        {activeTab === "flashcards" && <FlashcardReader studyItems={studyItems} />}
+
+        {/* Essay Tab */}
+        {activeTab === "essay" && (
+          <div className="space-y-6">
+            {essays.length > 0 ? (
+              essays.map((essay, idx) => (
+                <div key={idx} className="bg-white rounded-lg shadow-md p-6">
+                  <h2 className="text-lg font-semibold mb-2">Essay {idx + 1}</h2>
+                  <p className="text-gray-800 whitespace-pre-line">{essay}</p>
+                </div>
+              ))
+            ) : (
+              <div className="bg-white rounded-lg shadow-md p-12 text-center">
+                <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-xl font-medium text-gray-900 mb-2">No Essays Yet</h3>
+                <p className="text-gray-500 mb-6 max-w-md mx-auto">Generate an essay based on your input content to get started.</p>
+              </div>
+            )}
+          </div>
         )}
-        `{/* Settings Tab */}
-        {activeTab === "settings" && (
-          <SettingsPanel settings={settings} onSettingsChange={setSettings} />
-        )}
+
+        {/* Settings Tab */}
+        {activeTab === "settings" && <SettingsPanel settings={settings} onSettingsChange={setSettings} />}
+
         {/* Results Tab */}
         {activeTab === "results" && (
           <div className="space-y-6">
             {studyItems.length > 0 ? (
               <>
-                {/* Export Section */}
-                <ExportButtons
-                  studyItems={studyItems}
-                  onExport={exportStudyMaterials}
-                  disabled={isGenerating}
-                />
-
-                {/* Study Materials */}
+                <ExportButtons studyItems={studyItems} onExport={exportStudyMaterials} disabled={isGenerating} />
                 <div className="bg-white rounded-lg shadow-md p-6">
                   <div className="flex items-center justify-between mb-6">
                     <h2 className="text-xl font-semibold flex items-center">
-                      <GraduationCap className="w-5 h-5 mr-2 text-indigo-600" />
-                      Generated Study Materials ({studyItems.length})
-                    </h2>
-                    <div className="text-sm text-gray-500">
-                      {lastGenerated &&
-                        `Generated ${formatDate(lastGenerated)}`}
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    {studyItems.map((item, index) => (
-                      <StudyItemCard
-                        key={item.id}
-                        studyItem={item}
-                        index={index}
-                        onUpdate={updateStudyItem}
-                        onDelete={deleteStudyItem}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="bg-white rounded-lg shadow-md p-12 text-center">
-                <Brain className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-xl font-medium text-gray-900 mb-2">
-                  No Study Materials Yet
-                </h3>
-                <p className="text-gray-500 mb-6 max-w-md mx-auto">
-                  Add your study content and generate materials to get started.
-                  The AI will create questions, answers, and study guides based
-                  on your input.
-                </p>
-                <button
-                  onClick={() => setActiveTab("input")}
-                  className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700"
-                >
-                  <FileText className="w-5 h-5 mr-2" />
-                  Get Started
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-      </main>
-
-      {activeTab === "quiz" && <QuizTab studyItems={studyItems} />}
-
-      {/* Footer */}
-      <footer className="bg-white border-t border-gray-200">
-        <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-          <div className="text-center text-sm text-gray-500">
-            <p>
-              EduDraft- Empowering teachers and students with AI-generated study
-              materials
-            </p>
-            <p className="mt-1">
-              Built with React, TypeScript, and OpenRouter AI
-            </p>
-          </div>
-        </div>
-      </footer>
-    </div>
-  );
-}
-
-export default App;
+                      <GraduationCap className="w-5
